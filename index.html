@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Ограбление — пошаговый стелс</title>
+  <meta name="description" content="Пошаговая стелс-головоломка: проведите вора к бриллианту и выходу мимо охранников. 6 уровней, звёзды за минимум ходов.">
+  <meta name="theme-color" content="#0b0f14">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💎</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0b0f14; --panel: #151c25; --wall: #1f2a37; --floor: #0f151d; --text: #e6edf5; --muted: #8494a7; --gold: #fbbf24; --red: #ef4444; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100dvh; display: flex; justify-content: center; background: radial-gradient(circle at 50% 0%, #17283b, var(--bg) 65%); background-color: var(--bg); color: var(--text); font: 16px/1.4 Inter, system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+    button { font: inherit; color: inherit; cursor: pointer; }
+    .app { width: min(560px, 100%); padding: calc(14px + env(safe-area-inset-top)) 14px calc(20px + env(safe-area-inset-bottom)); }
+    .top { display: flex; align-items: center; gap: 10px; }
+    h1 { margin: 0; font: 400 26px 'Russo One', sans-serif; letter-spacing: 0.04em; }
+    h1 span { color: var(--gold); }
+    .levelname { margin-left: auto; color: var(--muted); font-weight: 600; font-size: 14px; text-align: right; }
+    .levelname b { display: block; color: var(--text); font-size: 16px; }
+    .hud { display: flex; gap: 8px; margin: 12px 0; }
+    .hud div { flex: 1; padding: 8px 12px; border-radius: 12px; background: var(--panel); font-size: 13px; color: var(--muted); }
+    .hud b { display: block; color: var(--text); font: 400 20px 'Russo One', sans-serif; }
+    .board { display: grid; gap: 2px; padding: 8px; border-radius: 16px; background: var(--panel); touch-action: none; }
+    .t { position: relative; aspect-ratio: 1; display: grid; place-items: center; border-radius: 5px; background: var(--floor); font-size: clamp(16px, 5.4vw, 28px); line-height: 1; }
+    .t.w { background: linear-gradient(180deg, #2b394a, var(--wall)); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.3); }
+    .t.seen { background: rgba(239, 68, 68, 0.28); box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.35); }
+    .t.next { background: rgba(239, 68, 68, 0.1); }
+    .t.exit { background: #10331f; }
+    .t.reach { cursor: pointer; }
+    .t.reach::after { content: ''; position: absolute; inset: 30%; border-radius: 50%; background: rgba(255, 255, 255, 0.12); }
+    .g { position: relative; }
+    .g i { position: absolute; font-size: 0.5em; font-style: normal; }
+    .pad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(2, 56px); gap: 8px; justify-content: center; margin-top: 14px; }
+    .pad button { border: 0; border-radius: 14px; background: var(--panel); font-size: 22px; touch-action: manipulation; }
+    .pad button:active { background: #24303e; }
+    .pad .up { grid-column: 2; } .pad .wait { grid-column: 3; grid-row: 1; font-size: 14px; font-weight: 700; }
+    .pad .left { grid-column: 1; grid-row: 2; } .pad .down { grid-column: 2; grid-row: 2; } .pad .right { grid-column: 3; grid-row: 2; }
+    .row { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+    .btn { padding: 10px 16px; border: 0; border-radius: 12px; background: var(--panel); font-weight: 700; font-size: 14px; }
+    .btn--gold { background: var(--gold); color: #1a1300; }
+    .legend { margin-top: 12px; color: var(--muted); font-size: 13px; text-align: center; }
+    .modal { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; background: rgba(5, 8, 12, 0.85); }
+    .modal[hidden] { display: none; }
+    .box { width: min(420px, 100%); padding: 26px; border-radius: 22px; background: var(--panel); text-align: center; animation: pop 0.25s ease; }
+    @keyframes pop { from { transform: scale(0.94); opacity: 0; } }
+    .box h2 { margin: 0; font: 400 28px 'Russo One', sans-serif; }
+    .box p { color: var(--muted); }
+    .stars { font-size: 40px; letter-spacing: 6px; }
+    .levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+    .lvl { padding: 14px 6px; border: 0; border-radius: 14px; background: #1e2835; font-weight: 700; font-size: 14px; }
+    .lvl small { display: block; color: var(--gold); font-size: 13px; }
+    .lvl:disabled { opacity: 0.35; cursor: default; }
+    .lvl.cur { box-shadow: inset 0 0 0 2px var(--gold); }
+    .caught .board { animation: shake 0.4s; }
+    @keyframes shake { 25%, 75% { transform: translateX(-6px); } 50% { transform: translateX(6px); } }
+  </style>
+</head>
+<body>
+  <main class="app" id="app">
+    <div class="top"><h1>ОГРАБ<span>ЛЕНИЕ</span></h1><div class="levelname"><span id="lvlNum"></span><b id="lvlName"></b></div></div>
+    <div class="hud"><div>Ходы<b id="moves">0</b></div><div>Бриллиант<b id="gem">—</b></div><div>Цель на ⭐⭐⭐<b id="par">0</b></div></div>
+    <div class="board" id="board"></div>
+    <div class="pad" aria-label="Управление">
+      <button class="up" data-d="0,-1" aria-label="Вверх">▲</button>
+      <button class="wait" data-d="0,0" aria-label="Ждать">ЖДАТЬ</button>
+      <button class="left" data-d="-1,0" aria-label="Влево">◀</button>
+      <button class="down" data-d="0,1" aria-label="Вниз">▼</button>
+      <button class="right" data-d="1,0" aria-label="Вправо">▶</button>
+    </div>
+    <div class="row"><button class="btn" id="restart">↺ Заново</button><button class="btn" id="undo">↶ Отменить ход</button><button class="btn" id="menu">☰ Уровни</button></div>
+    <p class="legend">🦹 вы · 💂 охрана (видит 3 клетки) · 💎 бриллиант · 🚪 выход. Красное — зона обзора, бледно-красное — куда смотрят на следующем ходу.</p>
+  </main>
+
+  <div class="modal" id="modal" hidden><div class="box" id="box"></div></div>
+
+  <script>
+    const LEVELS = [{"name":"Первое дело","map":["#########","#P..#..$#","#.#.#.#.#","#.#...#.#","#.#####.#","#E......#","#########"],"guards":[],"par":20},{"name":"Ночной сторож","map":["#########","#P......#","#.#####.#","#.#$..#.#","#.#.#.#.#","#...#...#","###E#####"],"guards":[{"path":[[7,1],[7,5]]}],"par":11},{"name":"Галерея","map":["#########","#P..#...#","#.#.#.#.#","#.#...#.#","#.###.#$#","#.....#.#","#.###...#","#...#.#E#","#########"],"guards":[{"path":[[1,5],[5,5]]},{"path":[[5,1],[7,1]]}],"par":16},{"name":"Хранилище","map":["#########","#P#.....#","#.#.###.#","#...#$#.#","###.#.#.#","#...#...#","#.#####.#","#.......#","#####E###"],"guards":[{"path":[[3,1],[7,1]]},{"path":[[7,2],[7,6]]},{"path":[[1,7],[7,7]]}],"par":59},{"name":"Двойной обход","map":["###########","#P........#","#.###.###.#","#.#.....#.#","#.#.#$#.#.#","#...#.#...#","###.#.#.###","#.........#","#####E#####"],"guards":[{"path":[[4,1],[9,1]]},{"path":[[3,3],[7,3]]},{"path":[[1,7],[9,7]]}],"par":14},{"name":"Особняк","map":["###########","#P..#.....#","#.#.#.###.#","#.#...#$#.#","#.###.#.#.#","#.....#...#","#.###.###.#","#...#.....#","###.#####.#","#.........#","#####E#####"],"guards":[{"path":[[5,1],[9,1]]},{"path":[[1,5],[5,5]]},{"path":[[5,7],[9,7]]},{"path":[[1,9],[9,9]]}],"par":62}];
+    const VISION = 3;
+    const $ = (id) => document.getElementById(id);
+    const save = (() => { try { return JSON.parse(localStorage.getItem('heist_save')) ?? { unlocked: 0, stars: {} }; } catch { return { unlocked: 0, stars: {} }; } })();
+    const persist = () => { try { localStorage.setItem('heist_save', JSON.stringify(save)); } catch {} };
+    let L, idx, player, got, turn, moves, history, over;
+
+    // Маршрут охранника: углы пути → клетки туда-обратно
+    function expand(path) { const pts = [path[0]]; for (let i = 1; i < path.length; i++) { let [x, y] = pts[pts.length - 1]; const [tx, ty] = path[i]; while (x !== tx || y !== ty) { x += Math.sign(tx - x); y += Math.sign(ty - y); pts.push([x, y]); } } return pts.length > 1 ? [...pts, ...pts.slice(1, -1).reverse()] : pts; }
+    const tile = (x, y) => L.map[y]?.[x] ?? '#';
+    const gAt = (g, t) => g.route[t % g.route.length];
+    function facing(g, t) { const a = gAt(g, t), b = gAt(g, t + 1); const d = [Math.sign(b[0] - a[0]), Math.sign(b[1] - a[1])]; return d[0] || d[1] ? d : (g.dir || [0, 1]); }
+    function vision(t) { const s = new Set(); for (const g of L.guards) { const [x, y] = gAt(g, t); const [dx, dy] = facing(g, t); s.add(x + ',' + y); for (let k = 1; k <= VISION; k++) { const nx = x + dx * k, ny = y + dy * k; if (tile(nx, ny) === '#') break; s.add(nx + ',' + ny); } } return s; }
+
+    function load(i) {
+      idx = i;
+      L = JSON.parse(JSON.stringify(LEVELS[i]));
+      L.guards.forEach((g) => { g.route = expand(g.path); });
+      L.map.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === 'P') player = [x, y]; }));
+      got = false; turn = 0; moves = 0; history = []; over = false;
+      $('modal').hidden = true;
+      $('board').style.gridTemplateColumns = `repeat(${L.map[0].length}, 1fr)`;
+      render();
+    }
+
+    function step(dx, dy) {
+      if (over) return;
+      const nx = player[0] + dx, ny = player[1] + dy;
+      if (tile(nx, ny) === '#') return;
+      history.push({ player: [...player], got, turn, moves });
+      player = [nx, ny]; turn++; moves++;
+      if (tile(nx, ny) === '$') got = true;
+      if (vision(turn).has(nx + ',' + ny)) return caught();
+      if (tile(nx, ny) === 'E' && got) return win();
+      render();
+    }
+
+    function caught() {
+      over = true; render();
+      document.body.classList.remove('caught'); void document.body.offsetWidth; document.body.classList.add('caught');
+      navigator.vibrate?.(200);
+      setTimeout(() => modal(`<h2>🚨 Вас заметили!</h2><p>Охрана подняла тревогу. Попробуйте другой маршрут или подождите, пока охранник отвернётся.</p><div class="row"><button class="btn" data-act="undo">↶ Отменить ход</button><button class="btn btn--gold" data-act="restart">Заново</button></div>`), 350);
+    }
+
+    function win() {
+      over = true; render();
+      const stars = moves <= L.par + 2 ? 3 : moves <= L.par + 10 ? 2 : 1;
+      save.stars[idx] = Math.max(save.stars[idx] || 0, stars);
+      save.unlocked = Math.max(save.unlocked, Math.min(idx + 1, LEVELS.length - 1));
+      persist();
+      const last = idx === LEVELS.length - 1;
+      modal(`<h2>💎 Чисто сработано!</h2><div class="stars">${'⭐'.repeat(stars)}${'☆'.repeat(3 - stars)}</div><p>${moves} ходов · лучший результат — ${L.par}</p>
+        <div class="row"><button class="btn" data-act="restart">Ещё раз</button>${last ? '<button class="btn btn--gold" data-act="menu">Все уровни</button>' : '<button class="btn btn--gold" data-act="next">Следующий уровень →</button>'}</div>`);
+    }
+
+    function undo() { const h = history.pop(); if (!h) return; ({ player, got, turn, moves } = h); player = [...h.player]; over = false; $('modal').hidden = true; render(); }
+
+    function modal(html) { $('box').innerHTML = html; $('modal').hidden = false; }
+    function menu() {
+      modal(`<h2>Уровни</h2><div class="levels">${LEVELS.map((l, i) => `<button class="lvl ${i === idx ? 'cur' : ''}" data-lvl="${i}" ${i > save.unlocked ? 'disabled' : ''}>${i + 1}. ${l.name}<small>${'⭐'.repeat(save.stars[i] || 0) || (i > save.unlocked ? '🔒' : '—')}</small></button>`).join('')}</div><button class="btn" data-act="close">Закрыть</button>`);
+    }
+
+    function render() {
+      const now = vision(turn);
+      const next = vision(turn + 1);
+      const guards = new Map(L.guards.map((g) => { const [x, y] = gAt(g, turn); const [dx, dy] = facing(g, turn); return [x + ',' + y, dx === 1 ? '▶' : dx === -1 ? '◀' : dy === 1 ? '▼' : '▲']; }));
+      let html = '';
+      L.map.forEach((row, y) => [...row].forEach((ch, x) => {
+        const k = x + ',' + y;
+        const isP = player[0] === x && player[1] === y;
+        const near = !over && Math.abs(player[0] - x) + Math.abs(player[1] - y) === 1 && ch !== '#';
+        let cls = 't' + (ch === '#' ? ' w' : '') + (ch === 'E' ? ' exit' : '') + (ch !== '#' && now.has(k) ? ' seen' : ch !== '#' && next.has(k) ? ' next' : '') + (near ? ' reach' : '');
+        let txt = isP ? (over && now.has(k) ? '😱' : '🦹') : guards.has(k) ? `<span class="g">💂<i style="right:-10%;bottom:-10%">${guards.get(k)}</i></span>` : ch === '$' && !got ? '💎' : ch === 'E' ? '🚪' : '';
+        html += `<div class="${cls}" data-x="${x}" data-y="${y}">${txt}</div>`;
+      }));
+      $('board').innerHTML = html;
+      $('lvlNum').textContent = `Уровень ${idx + 1} из ${LEVELS.length}`;
+      $('lvlName').textContent = L.name;
+      $('moves').textContent = moves;
+      $('gem').textContent = got ? '✔ у вас' : 'не взят';
+      $('par').textContent = L.par + 2;
+      $('undo').disabled = !history.length;
+    }
+
+    // Управление: стрелки/WASD, кнопки, свайп, тап по соседней клетке
+    document.addEventListener('keydown', (e) => {
+      const map = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0], ' ': [0, 0] };
+      const d = map[e.key] || map[e.key.toLowerCase()];
+      if (d && $('modal').hidden) { e.preventDefault(); step(...d); }
+      if (e.key.toLowerCase() === 'z' || e.key.toLowerCase() === 'u') undo();
+    });
+    document.querySelector('.pad').addEventListener('click', (e) => { const b = e.target.closest('[data-d]'); if (b) step(...b.dataset.d.split(',').map(Number)); });
+    $('board').addEventListener('click', (e) => { const t = e.target.closest('.t.reach'); if (t) step(+t.dataset.x - player[0], +t.dataset.y - player[1]); });
+    let sx, sy;
+    $('board').addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
+    $('board').addEventListener('pointerup', (e) => { const dx = e.clientX - sx, dy = e.clientY - sy; if (Math.max(Math.abs(dx), Math.abs(dy)) > 30) step(Math.abs(dx) > Math.abs(dy) ? Math.sign(dx) : 0, Math.abs(dy) >= Math.abs(dx) ? Math.sign(dy) : 0); });
+    $('restart').onclick = () => load(idx);
+    $('undo').onclick = undo;
+    $('menu').onclick = menu;
+    $('box').addEventListener('click', (e) => {
+      const a = e.target.closest('[data-act]')?.dataset.act;
+      const lvl = e.target.closest('[data-lvl]');
+      if (lvl) load(+lvl.dataset.lvl);
+      if (a === 'restart') load(idx);
+      if (a === 'next') load(idx + 1);
+      if (a === 'undo') undo();
+      if (a === 'menu') menu();
+      if (a === 'close') $('modal').hidden = true;
+    });
+    load(Math.min(save.unlocked, LEVELS.length - 1));
+  </script>
+</body>
+</html>
